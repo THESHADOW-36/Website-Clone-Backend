@@ -1,0 +1,41 @@
+import UserModal from "../modals/User.modal.js";
+import bcrypt from "bcrypt"
+import Jwt from "jsonwebtoken";
+
+export const Register = async (req, res) => {
+    try {
+        const { firstname, surname, day, month, year, gender, email, password } = req.body.userData;
+        if (!firstname || !surname || !day || !month || !year || !gender || !email || !password) return res.status(401).json({ success: false, message: "All fields are mandatory" })
+
+        const hashedPassword = await bcrypt.hash(password, 10)
+
+        const user = new UserModal({ firstname, surname, day, month, year, gender, email, password: hashedPassword })
+
+        await user.save();
+
+        return res.status(200).json({ success: true, message: "Registered Successfully" })
+
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error })
+    }
+}
+
+export const Login = async (req, res) => {
+    try {
+        const { email, password } = req.body.userData;
+        if (!email || !password) return res.status(401).json({ success: false, message: "All fields are mandatory" })
+
+        const user = await UserModal.findOne({ email: email })
+        if (!user) return res.status(401).json({ success: false, message: "Email ID is wrong or not registered" })
+
+        const isPasswordCorrect = await bcrypt.compare(password, user.password)
+        if (!isPasswordCorrect) return res.status(404).json({ success: false, message: "Your password is incorrect" })
+
+        const token = await Jwt.sign({ id: user._id }, process.env.JWT_SECRET)
+
+        return res.status(200).json({ success: true, message: "Logged In Successfully", user: { name: user.firstname, id: user._id }, token })
+
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error })
+    }
+}
